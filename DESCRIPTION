@@ -1,7 +1,7 @@
 Package: D2C
 Type: Package
 Title: Predicting Causal Direction from Dependency Features
-Version: 1.0
+Version: 1.1
 Date: 2014-06-10
 Author: Gianluca Bontempi, Catharina Olsen, Maxime Flauder
 Maintainer: Catharina Olsen <colsen@ulb.ac.be>
@@ -18,11 +18,10 @@ Description: The relationship between statistical dependency and causality lies
     and (ii) using a classifier to learn a mapping between the features and the
     presence of a causal link
 License: Artistic-2.0
-Depends: randomForest
-Imports: gRbase, lazy, RBGL, MASS, corpcor, infotheo, methods,
-        Rgraphviz
+Depends: R(>= 2.10.0), randomForest
+Imports: gRbase, lazy, RBGL, MASS, corpcor, methods, Rgraphviz
 LazyData: true
-Packaged: 2014-11-10 14:36:35 UTC; cat
+Packaged: 2014-12-16 11:26:20 UTC; bontempi
 NeedsCompilation: no
 Repository: CRAN
-Date/Publication: 2014-11-10 18:07:50
+Date/Publication: 2014-12-16 13:19:36

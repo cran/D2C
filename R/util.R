@@ -1,6 +1,29 @@
+
+
+H_sigmoid <- function(n=2)
+{
+  a = runif(n+1,min = -5,max = 5)
+  f <- function(x)
+  {
+    X  = x^(0:n)
+    return ( 1/(1+exp(sum(X * a))))
+  }
+  return(Vectorize(f))
+}
+H_Rn <- function(n){
+  a = runif(n+1,min = -1,max = 1)
+  f <- function(x)
+  {
+    X  = x^(0:n)
+    return ( sum(X * a))
+  }
+  return(Vectorize(f))
+}
+
+
 pcor1<-function(x,y,z){
   ## partial correlation cor(x,y|z)
-  ## 14/10/11
+
   
   if (is.numeric(z)){
     rho.xy<-cor(x,y,"pairwise.complete.obs")
@@ -53,9 +76,7 @@ corDC<-function(X,Y){
 
 Icond<-function(x,y=NULL,z,lambda=0){
   ## conditional  information cor(x,y|z)
-  ## 14/10/11
-  ## added x=matrix case on 25/10/11 
-  
+
   
   
   ## numeric z
@@ -144,7 +165,7 @@ ppears<-function(r.hat,N,S=0){
 
 corXY<-function(X,Y){
   ## correlation continuous matrix and continuous/discrete vectormatrix
-  ## 14/11/2011
+  
   
   n<-NCOL(X)
   N<-NROW(X)
@@ -236,14 +257,36 @@ lazy.pred<- function(X,Y,X.ts,class=FALSE,return.more=FALSE,
 
 
 
-
+#' mIMR (minimum Interaction max Relevance) filter 
+#' @param X :  input matrix 
+#' @param Y : output vector
+#' @param nmax : number of returned features
+#' @param init : if TRUE it makes a search in the space of pairs of features to initialize the ranking, otherwise the first ranked feature is the one with the highest mutual information with the output
+#' @param lambda : weight \eqn{0 \le \lambda \le 1} of the interaction term
+#' @param spouse.removal : TRUE OR FALSE. if TRUE it removes the spouses before ranking
+#' @param caus :   if \code{caus =1} it prioritizes causes otherwise (\code{caus=-1}) it prioritizes effects
+#' @return ranked vector of \code{nmax} indices of features
+#' @description Filter  based on information theory which aims to prioritise direct causal relationships in feature selection problems where the ratio between the number of features and the number of samples is high. The approach is based on the notion of interaction which is informative about the relevance of an input subset as well as its causal relationship with the target. 
+#' @examples
+#'  set.seed(0)
+#' N<-500
+#' n<-5
+#' X<-array(rnorm(N*n),c(N,n))
+#' Y<-X[,1]-3*X[,3]+4*X[,2]+rnorm(N,sd=0.5)
+#' Z1<-Y+rnorm(N,sd=0.5)
+#' ## effect 1
+#' Z2<-2*Y+rnorm(N,sd=0.5)
+#' ## effect 2
+#' most.probable.causes<-mimr(cbind(X,Z1,Z2),Y,nmax=3,init=TRUE,spouse=FALSE,lambda=1)
+#' ## causes are in the first three columns of the feature dataset 
+#' most.probable.effects<-mimr(cbind(X,Z1,Z2),Y,nmax=3,init=TRUE,spouse=FALSE,lambda=1,caus=-1)
+#' ## effects are in the last two columns of the feature dataset
+#' @references Bontempi G., Meyer P.E. (2010) Causal filter selection in microarray data. ICML10 
+#' @export
 mimr<-function(X,Y,nmax=5,
                init=FALSE,lambda=0.5,
                spouse.removal=TRUE,
                caus=1){
-  ## mimr filter
-  # if caus =1 it searches for causes otherwise if caus=-1 it searches for effects
-  
   
   NMAX<-nmax
   m<-NCOL(Y) # number of outputs
@@ -270,9 +313,11 @@ mimr<-function(X,Y,nmax=5,
   
   CCx<-cor(X) 
   Ix<-cor2I2(CCx)
+  ## mutual information
   Ixx<-Icond(X,z=Y,lambda=0.02)
+  ## conditional information
   Inter<-array(NA,c(n,n))
-  
+ 
   if (init){    
     max.kj<--Inf
     for (kk in 1:(n-1)){
@@ -321,83 +366,9 @@ mimr<-function(X,Y,nmax=5,
 }
 
 
-
-mrmr<-function(X,Y,nmax=5,first=NULL,back=FALSE){
-  ## mRMR filter
-  # 17/10/11
-  
-  
-  n<-NCOL(X)
-  N<-NROW(X)
-  m<-NCOL(Y)
-  
-  if (is.factor(X[,1]) && is.factor(Y)){
-    Iy<-numeric(n)
-    Ix<-array(0,c(n,n))
-    for (i in 1:n){
-      for (j in 1:n){
-        Ix[i,j]<-mutinformation(X[,i],X[,j])
-      }
-      Iy[i]<-mutinformation(X[,i],Y)
-    }
-  }else {
-    
-    X<-scale(X)
-    Iy<-cor2I2(corXY(X,Y))
-    
-    CCx<-cor(X,use="pairwise.complete.obs")
-    Ix<-cor2I2(CCx)
-    
-  }
-  
-  subs<-which.max(Iy)
-  for (j in length(subs):min(n-1,nmax)){
-    mrmr<-numeric(n)-Inf
-    if (length(subs)<(n-1)){
-      if (length(subs)>1){
-        mrmr[-subs]<- Iy[-subs]+apply(-Ix[subs,-subs],2,mean)
-      } else {
-        
-        mrmr[-subs]<- Iy[-subs]+(-Ix[subs,-subs])
-        
-      }
-    } else {
-      mrmr[-subs]<-Inf
-    }
-    
-    s<-which.max(mrmr)
-    subs<-c(subs,s)
-    
-  }
-  
-  
-  if (back){  ## backward reordering based on linear regression
-    nsubs<-NULL
-    while (length(subs)>1){
-      pd<-numeric(length(subs))
-      
-      for (ii in 1:length(subs))
-        pd[ii]<-regrlin(X[,setdiff(subs,subs[ii])],Y)$MSE.emp
-      
-      nsubs<-c(subs[which.min(pd)],nsubs)
-      subs<-setdiff(subs,subs[which.min(pd)])
-      
-      
-    }
-    subs<-c(subs,nsubs)
-  }
-  
-  
-  
-  subs[1:nmax]
-  
-  
-}
-
-
 assoc <-function(x,y){
   c(abs(cor(x,y)),cor.test(x,y)$p.value)
-  ##c(cor.test(x,y,method="kendall")$p.value)
+ 
 }
 
 

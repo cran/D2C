@@ -29,7 +29,8 @@ rankrho<-function(X,Y,nmax=5,regr=FALSE,first=NULL){
 
 
 
-npred<-function(X,Y,R=3,lin=TRUE){
+npred<-function(X,Y,lin=TRUE){
+  ## normalized mean squared error of the dependency
   N<-NROW(X)
   n<-NCOL(X)
   if (n>1){
@@ -48,41 +49,39 @@ npred<-function(X,Y,R=3,lin=TRUE){
   nmse<-mean(e^2)/var(Y) 
   nmse
 }
- 
+
 #' compute descriptor
-#' @param D  the data matrix
-#' @param ca node label of the cause
-#' @param ef node label of the effect
-#' @param ns number of iteration in the mimr algorithm
-#' @param lin TRUE or false functional dependency 
-#' @param acc TRUE or false use the accuracy of the regression as a descriptor
-#' @param struct TRUE or false to use the ranking in the markov blanket as a descriptor
-#' @param pq  a vector of quantile used to compute de descriptor
+#' @param D :  the observed data matrix of size [N,n], where N is the number of samples and n is the number of nodes
+#' @param ca : node index (\eqn{1 \le ca \le n}) of the putative cause
+#' @param ef : node index (\eqn{1 \le ef \le n}) of the putative effect
+#' @param ns : size of the Markov Blanket
+#' @param lin : TRUE OR FALSE. if TRUE it uses a linear model to assess a dependency, otherwise a local learning algorithm 
+#' @param acc : TRUE OR FALSE. if TRUE it uses the accuracy of the regression as a descriptor
+#' @param struct :   TRUE or FALSE to use the ranking in the markov blanket as a descriptor
+#' @param pq :  a vector of quantiles used to compute de descriptor
+#' @param bivariate :  TRUE OR FALSE. if TRUE it includes the descriptors of the bivariate dependency
+#' @details This function is the core of the D2C algorithm. Given two candidate nodes, (\code{ca}, putative cause and \code{ef}, putative effect) it first infers from the dataset D the Markov Blankets of the variables indexed by \code{ca} and \code{ef} (\code{MBca} and \code{MBef}) by using the \link{mimr} algorithm (Bontempi, Meyer, ICML10). Then it computes a set of (conditional) mutual information terms describing the dependency between the variables ca and ef. These terms are used to create a vector of descriptors. If \code{acc=TRUE}, the vector contains the descriptors related to the asymmetric information theoretic terms described in the paper. If \code{struct=TRUE}, the vector contains descriptors related to the positions of the terms of the MBef in MBca and viceversa. The estimation of the information theoretic terms require the estimation of the dependency between nodes. If \code{lin=TRUE} a linear assumption is made. Otherwise the local learning estimator, implemented by the R package \link{lazy}, is used.
 #' @references Gianluca Bontempi, Maxime Flauder (2014) From dependency to causality: a machine learning approach. Under submission
+#' @references Bontempi G., Meyer P.E. (2010) Causal filter selection in microarray data. ICML'10
+#' @references M. Birattari, G. Bontempi, and H. Bersini (1999) Lazy learning meets the recursive least squares algorithm. Advances in Neural Information Processing Systems 11, pp. 375-381. MIT Press.
+#' @references G. Bontempi, M. Birattari, and H. Bersini (1999) Lazy learning for modeling and control design. International Journal of Control, 72(7/8), pp. 643-658.
 #' @export 
 descriptor<-function(D,ca,ef,ns=min(4,NCOL(D)-2),
-                      lin=FALSE,acc=TRUE,struct=TRUE,
-                     pq= c(0.1,0.25,0.5,0.75,0.9) ){
- c(D2C.n(D,ca,ef,ns,lin,acc,struct,pq=pq),D2C.2(D[,ca],D[,ef]))
-
+                     lin=FALSE,acc=TRUE,struct=TRUE, 
+                     pq= c(0.1,0.25,0.5,0.75,0.9),
+                     bivariate=FALSE ){
+  if (bivariate)
+    return(c(D2C.n(D,ca,ef,ns,lin,acc,struct,pq=pq),D2C.2(D[,ca],D[,ef])))
+  else
+    return(D2C.n(D,ca,ef,ns,lin,acc,struct,pq=pq))
 }
 
 
 
 
-# norminf<-function(y,x1,x2,lin=TRUE){
-# ## I(x1;y| x2)= (H(y|x1)-H(y | x1,x2))/H(y|x1
-#   
-# np<-npred(x1,y,lin=lin)
-# x1x2<-cbind(x1,x2)
-# delta<- (npred(x1x2,y,lin=lin)-np)/np
-# return(delta)
-# 
-# }
-
 
 norminf<-function(y,x1,x2,lin=TRUE){
-  ## I(x1;y| x2)= (H(y|x1)-H(y | x1,x2))/H(y|x1
+  ## I(x1;y| x2)= (H(y|x1)-H(y | x1,x2))/H(y|x1)
   
   np<-npred(x1,y,lin=lin)
   x1x2<-cbind(x1,x2)
@@ -92,25 +91,27 @@ norminf<-function(y,x1,x2,lin=TRUE){
 }
 
 D2C.n<-function(D,ca,ef,ns=min(4,NCOL(D)-2),
-                      lin=FALSE,acc=TRUE,struct=TRUE,
-                     pq= c(0.1,0.25,0.5,0.75,0.9)){
+                lin=FALSE,acc=TRUE,struct=TRUE,
+                pq= c(0.1,0.25,0.5,0.75,0.9)){
   ## is i cause oj j
   n<-NCOL(D)
   N<-NROW(D)
   
-  #### creation MB of ca
+  #### creation of the Markov Blanket of ca (denoted MBca)
+  #### MB is obtained by first ranking the other nodes and then selecting a subset of size ns 
+  #### with the mimr algorithm
   ind<-setdiff(colnames(D),ca)
   ind<-ind[rankrho(D[,ind],D[,ca],nmax=min(length(ind),50))]
   
   MBca<-ind[mimr(D[,ind],D[,ca],nmax=ns,init=TRUE)]
   
-  #### creation MB of ef
+  #### creation of the Markov Blanket of ef (denoted MBef)
   ind<-setdiff(colnames(D),ef)
   ind<-ind[rankrho(D[,ind],D[,ef],nmax=min(length(ind),50))]
   
   MBef<-ind[mimr(D[,ind],D[,ef],nmax=ns,init=TRUE)]
   
- 
+  
   
   namesx<-NULL 
   x<-NULL
@@ -170,40 +171,40 @@ D2C.n<-function(D,ca,ef,ns=min(4,NCOL(D)-2),
     ## relevance of ca for ef given MBef
     np<-npred(D[,MBef],D[,ef],lin=lin)
     delta<- (npred(D[,c(MBef,ca)],D[,ef],lin=lin)-np)/np
-     
+    
     
     ## relevance of ef for ca given MBca
     np<-npred(D[,MBca],D[,ca],lin=lin)
     delta2<- (npred(D[,c(MBca,ef)],D[,ca],lin=lin)-np)/np
-      
+    
     
     I1.i<-NULL
     ## Information of Mbef on ca 
-   
+    
     for (j in 1:length(MBef)){
       I1.i<-c(I1.i, (npred(D[,MBef[j]],D[,ca],lin=lin)))
     }
-
+    
     I1.j<-NULL
     ## Information of Mbca on ef 
-   
+    
     for (j in 1:length(MBca)){
       I1.j<-c(I1.j, (npred(D[,MBca[j]],D[,ef],lin=lin)))
     }
-
+    
     I2.i<-NULL
-     ## Information of Mbef on ca given ef
-     for (j in 1:length(MBef)){
+    ## Information of Mbef on ca given ef
+    for (j in 1:length(MBef)){
       I2.i<-c(I2.i, norminf(D[,ca], D[,MBef[j]],D[,ef],lin=lin))
     }
-
+    
     I2.j<-NULL
-     ## Information of Mbca on ef given ca
-     for (j in 1:length(MBca)){
+    ## Information of Mbca on ef given ca
+    for (j in 1:length(MBca)){
       I2.j<-c(I2.j, norminf(D[,ef], D[,MBca[j]],D[,ca],lin=lin))
     }
-
-
+    
+    
     I3.i<-NULL
     ## Information of MBef on MBca given ca
     for (i in 1:length(MBca))
@@ -217,8 +218,8 @@ D2C.n<-function(D,ca,ef,ns=min(4,NCOL(D)-2),
       for (j in 1:length(MBef)){
         I3.j<-c(I3.j,(norminf(D[,MBca[i]],D[,MBef[j]],D[,ef],lin=lin)))
       }
-                
-   
+    
+    
     
     x<-c(x,delta,delta2,ca.ef,ef.ca,
          quantile(I1.i,probs=pq,na.rm=TRUE),quantile(I1.j,probs=pq,na.rm=TRUE),
@@ -235,7 +236,7 @@ D2C.n<-function(D,ca,ef,ns=min(4,NCOL(D)-2),
     browser()
   names(x)<-namesx
   x
- 
+  
   
 }
 
