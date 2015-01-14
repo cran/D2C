@@ -4,7 +4,10 @@
 \alias{example}
 \title{stored D2C object}
 \description{
-D2C object for testing D2C functionalities
+small D2C object for testing D2C functionalities
+}
+\details{
+Dataset example
 }
 \examples{
 require(RBGL)
@@ -15,6 +18,5 @@ print(example@mod)
 print(dim(example@X))
 ## dimension of the training set
 }
-\keyword{#'}
 \keyword{data}
 

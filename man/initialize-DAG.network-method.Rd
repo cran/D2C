@@ -6,7 +6,7 @@
 \usage{
 \S4method{initialize}{DAG.network}(.Object, network, sdn = 0.5,
   sigma = function(x) return(rnorm(n = 1, sd = sdn)), H = function(x)
-  return(x))
+  return(H_Rn(1)))
 }
 \arguments{
 \item{.Object}{: DAG.network object}

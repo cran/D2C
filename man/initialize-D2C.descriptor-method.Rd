@@ -29,6 +29,7 @@ creation of a D2C.descriptor
 \examples{
 require(RBGL)
 require(gRbase)
+require(foreach)
 descr.example<-new("D2C.descriptor",bivariate=FALSE,ns=3,acc=TRUE)
 trainDAG<-new("simulatedDAG",NDAG=2, N=50,noNodes=10,
              functionType = "linear", seed=0,sdn=0.5)

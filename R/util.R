@@ -1,4 +1,42 @@
 
+rankrho<-function(X,Y,nmax=5,regr=FALSE,first=NULL){
+  ## mutual information ranking
+  ## 17/10/11
+  n<-NCOL(X)
+  N<-NROW(X)
+  m<-NCOL(Y)
+
+  if (var(Y)<0.01)
+    return(1:nmax)
+  X<-scale(X)
+  
+  Iy<-numeric(n)
+  if (!regr){
+    Iy<-cor2I2(corXY(X,Y))
+  } else {
+    for (i in 1:n)
+      Iy[i]<-abs(regrlin(X[,i],Y)$beta.hat[2])
+  }
+  
+  if (m>1)
+    Iy<-apply(Iy,1,mean)
+  
+  
+  return(sort(c(Iy), decreasing=TRUE, index.return=TRUE)$ix[1:nmax])
+  
+  
+}
+
+
+
+
+quantization<-function(x,nbin=1){
+  if (nbin==1)
+    return(as.numeric(cut(x, breaks = c(min(x)-1,median(x),max(x)+1))))
+  else
+    return(as.numeric(cut(x, breaks = c(min(x)-1,quantile(x,c(0.25,0.5,0.75)),max(x)+1))))
+
+}
 
 H_sigmoid <- function(n=2)
 {
@@ -287,7 +325,8 @@ mimr<-function(X,Y,nmax=5,
                init=FALSE,lambda=0.5,
                spouse.removal=TRUE,
                caus=1){
-  
+  if (var(Y)<0.01)
+    return(1:nmax)
   NMAX<-nmax
   m<-NCOL(Y) # number of outputs
   n<-NCOL(X)
@@ -372,5 +411,32 @@ assoc <-function(x,y){
 }
 
 
+#' Balanced Error Rate
+#' @param Ytrue :  binary numeric vector (made of 0 or 1) of real classes 
+#' @param Yhat : binary numeric vector (made of 0 or 1) of predicted classes
+#' @description The balanced error rate is the average of the errors on each class: BER = 0.5*(FP/(TN+FP) + FN/(FN+TP)).
+#' @return Balanced Error Rate \eqn{0 \le } BER \eqn{ \le 1}
+#' @export
+BER<-function(Ytrue,Yhat){
+
+  if (!(is.numeric(Ytrue) & is.numeric(Yhat)))
+    stop("BER accepts only numeric values")
+  TN<-length(which(Yhat==0 & Ytrue==0)) 
+  FN<-length(which(Yhat==0 & Ytrue==1))
+  TP<-length(which(Yhat==1 & Ytrue==1))
+  FP<-length(which(Yhat==1 & Ytrue==0))
+
+  
+  b1<-FP/(TN+FP)
+  b2<-FN/(FN+TP)
+  if (is.na(b1))
+    b1<-0
+  if (is.na(b2))
+    b2<-0
+  return(0.5*(b1+b2))
+  
+
+
+}
 
 

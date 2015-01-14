@@ -1,38 +1,11 @@
-#' @import MASS randomForest corpcor infotheo lazy
-
-rankrho<-function(X,Y,nmax=5,regr=FALSE,first=NULL){
-  ## mutual information ranking
-  ## 17/10/11
-  n<-NCOL(X)
-  N<-NROW(X)
-  m<-NCOL(Y)
-  X<-scale(X)
-  
-  Iy<-numeric(n)
-  if (!regr){
-    Iy<-cor2I2(corXY(X,Y))
-  } else {
-    for (i in 1:n)
-      Iy[i]<-abs(regrlin(X[,i],Y)$beta.hat[2])
-  }
-  
-  if (m>1)
-    Iy<-apply(Iy,1,mean)
-  
-  
-  return(sort(c(Iy), decreasing=TRUE, index.return=TRUE)$ix[1:nmax])
-  
-  
-}
-
-
-
+#' @import MASS randomForest corpcor  lazy
 
 
 npred<-function(X,Y,lin=TRUE){
   ## normalized mean squared error of the dependency
   N<-NROW(X)
   n<-NCOL(X)
+ 
   if (n>1){
     w.const<-which(apply(X,2,sd)<0.01)    
     if (length(w.const)>0){
@@ -42,12 +15,12 @@ npred<-function(X,Y,lin=TRUE){
   }
   
   if (lin)
-    return(regrlin(X,Y)$MSE.loo/var(Y))
+    return(max(1e-3,regrlin(X,Y)$MSE.loo/var(Y)))
   X<-scale(X)
   e<-Y-lazy.pred(X,Y,X,conPar=c(5,10),
                  linPar=NULL,class=FALSE,cmbPar=10)
   nmse<-mean(e^2)/var(Y) 
-  nmse
+  max(1e-3,nmse)
 }
 
 #' compute descriptor
@@ -73,7 +46,7 @@ descriptor<-function(D,ca,ef,ns=min(4,NCOL(D)-2),
   if (bivariate)
     return(c(D2C.n(D,ca,ef,ns,lin,acc,struct,pq=pq),D2C.2(D[,ca],D[,ef])))
   else
-    return(D2C.n(D,ca,ef,ns,lin,acc,struct,pq=pq))
+    return(c(NCOL(D),NROW(D),D2C.n(D,ca,ef,ns,lin,acc,struct,pq=pq)))
 }
 
 
@@ -100,13 +73,14 @@ D2C.n<-function(D,ca,ef,ns=min(4,NCOL(D)-2),
   #### creation of the Markov Blanket of ca (denoted MBca)
   #### MB is obtained by first ranking the other nodes and then selecting a subset of size ns 
   #### with the mimr algorithm
-  ind<-setdiff(colnames(D),ca)
+  ind<-setdiff(1:n,ca)
+  
   ind<-ind[rankrho(D[,ind],D[,ca],nmax=min(length(ind),50))]
   
   MBca<-ind[mimr(D[,ind],D[,ca],nmax=ns,init=TRUE)]
   
   #### creation of the Markov Blanket of ef (denoted MBef)
-  ind<-setdiff(colnames(D),ef)
+  ind<-setdiff(1:n,ef)
   ind<-ind[rankrho(D[,ind],D[,ef],nmax=min(length(ind),50))]
   
   MBef<-ind[mimr(D[,ind],D[,ef],nmax=ns,init=TRUE)]
@@ -170,6 +144,7 @@ D2C.n<-function(D,ca,ef,ns=min(4,NCOL(D)-2),
     
     ## relevance of ca for ef given MBef
     np<-npred(D[,MBef],D[,ef],lin=lin)
+
     delta<- (npred(D[,c(MBef,ca)],D[,ef],lin=lin)-np)/np
     
     

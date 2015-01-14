@@ -6,7 +6,7 @@
 \usage{
 \S4method{initialize}{D2C}(.Object, sDAG, descr = new("D2C.descriptor"),
   verbose = TRUE, ratioMissingNode = 0, ratioEdges = 1,
-  max.features = 20)
+  max.features = 20, goParallel = FALSE)
 }
 \arguments{
 \item{.Object}{: the D2C object}
@@ -22,6 +22,8 @@
 \item{ratioEdges}{: percentage of existing edges which are added to the training set}
 
 \item{max.features}{: maximum number of features used by the Random Forest classifier \link[randomForest]{randomForest}. The features are selected by the importance returned by the function \link[randomForest]{importance}.}
+
+\item{goParallel}{: if TRUE it uses parallelism}
 }
 \description{
 creation of a D2C object which preprocesses the list of DAGs and observations contained in sDAG and fits a  Random Forest classifier
@@ -29,6 +31,7 @@ creation of a D2C object which preprocesses the list of DAGs and observations co
 \examples{
 require(RBGL)
 require(gRbase)
+ require(foreach)
 descr=new("D2C.descriptor")
 descr.example<-new("D2C.descriptor",bivariate=FALSE,ns=3,acc=TRUE)
 trainDAG<-new("simulatedDAG",NDAG=2, N=50,noNodes=10,

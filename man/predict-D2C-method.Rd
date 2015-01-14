@@ -24,6 +24,7 @@ predict if there is a connection between node i and node j
 \examples{
 require(RBGL)
 require(gRbase)
+require(foreach)
 data(example)
 ## load the D2C object
 testDAG<-new("simulatedDAG",NDAG=1, N=50,noNodes=5,
